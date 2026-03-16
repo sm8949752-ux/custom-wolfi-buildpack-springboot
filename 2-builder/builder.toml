@@ -1,0 +1,15 @@
+description = "My Custom Wolfi Builder for Spring Boot with Java 25"
+
+[stack]
+  id = "io.taha.stack.wolfi"
+  build-image = "taha/wolfi-build-image:latest"
+  run-image = "taha/wolfi-run-image:latest"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/java:latest"
+[[order]]
+  [[order.group]]
+    id = "paketo-buildpacks/java"
+
+[[targets]]
+  os = "linux"
+  arch = "amd64"

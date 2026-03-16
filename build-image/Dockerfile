@@ -1,13 +1,12 @@
-FROM cgr.dev/chainguard/wolfi-base
+FROM ghcr.io/taha2samy/java:21.0.10_7-LTS-jdk_standard
 
-RUN apk add --no-cache bash
+USER root
+RUN usermod -u 1000 java && groupmod -g 1000 java || true
 
-RUN addgroup -g 1000 cnb && \
-    adduser -u 1000 -G cnb -s /bin/bash -D cnb
+ENV CNB_USER_ID=1001
+ENV CNB_GROUP_ID=1001
+LABEL io.buildpacks.stack.id="io.buildpacks.stacks.jammy"
 
-ENV CNB_USER_ID=1000
-ENV CNB_GROUP_ID=1000
+RUN chmod -R 755 /opt/java
 
-LABEL io.buildpacks.stack.id="io.taha.stack.wolfi"
-
-USER ${CNB_USER_ID}:${CNB_GROUP_ID}
+USER 1001

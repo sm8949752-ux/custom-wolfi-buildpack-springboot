@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+plan=$2
+
+cat >> "$plan" <<EOF
+[[provides]]
+name = "jdk"
+[[provides]]
+name = "jre"
+EOF
+
+exit 0

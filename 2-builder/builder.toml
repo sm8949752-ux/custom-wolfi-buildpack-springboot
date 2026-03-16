@@ -1,15 +1,29 @@
-description = "My Custom Wolfi Builder for Spring Boot with Java 25"
+description = "My Custom Wolfi FIPS Builder"
 
 [stack]
-  id = "io.taha.stack.wolfi"
+  id = "io.buildpacks.stacks.jammy"
   build-image = "taha/wolfi-build-image:latest"
   run-image = "taha/wolfi-run-image:latest"
-[[buildpacks]]
-  uri = "docker://paketobuildpacks/java:latest"
-[[order]]
-  [[order.group]]
-    id = "paketo-buildpacks/java"
 
-[[targets]]
-  os = "linux"
-  arch = "amd64"
+[[buildpacks]]
+  uri = "../fips-java-shim"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/ca-certificates:latest"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/syft:latest"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/maven:latest"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/executable-jar:latest"
+[[buildpacks]]
+  uri = "docker://paketobuildpacks/spring-boot:latest"
+
+[[order]]
+  group = [
+    { id = "paketo-buildpacks/bellsoft-liberica", version = "99.9.9" },
+    { id = "paketo-buildpacks/ca-certificates" },
+    { id = "paketo-buildpacks/syft" },
+    { id = "paketo-buildpacks/maven" },
+    { id = "paketo-buildpacks/executable-jar" },
+    { id = "paketo-buildpacks/spring-boot" }
+  ]

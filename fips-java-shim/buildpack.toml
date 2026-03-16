@@ -1,0 +1,12 @@
+api = "0.7"
+
+[buildpack]
+id = "paketo-buildpacks/bellsoft-liberica"
+version = "99.9.9"
+name = "FIPS Java Shim"
+
+[[provides]]
+name = "jdk"
+
+[[provides]]
+name = "jre"

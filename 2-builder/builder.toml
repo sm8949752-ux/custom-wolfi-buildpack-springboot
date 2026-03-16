@@ -23,6 +23,7 @@ description = "My Custom Wolfi FIPS Builder"
     { id = "paketo-buildpacks/bellsoft-liberica", version = "99.9.9" },
     { id = "paketo-buildpacks/ca-certificates" },
     { id = "paketo-buildpacks/syft" },
+    { id = "paketo-buildpacks/gradle" },        
     { id = "paketo-buildpacks/maven" },
     { id = "paketo-buildpacks/executable-jar" },
     { id = "paketo-buildpacks/spring-boot" }

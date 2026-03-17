@@ -1,22 +1,86 @@
-description = "My Custom Wolfi FIPS Builder"
+description = "My Custom Wolfi FIPS Builder (Full Java Stack)"
 
 [stack]
-  id = "io.buildpacks.stacks.wolfi-fips"
-  build-image = "taha/wolfi-build-image:latest"
-  run-image = "taha/wolfi-run-image:latest"
+id = "io.buildpacks.stacks.jammy"
+build-image = "taha/wolfi-build-image:latest"
+run-image = "taha/wolfi-run-image:latest"
+
+[[targets]]
+os = "linux"
+arch = "amd64"
 
 [[buildpacks]]
-  uri = "../fips-java-shim"
+uri = "../fips-java-shim"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/ca-certificates:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/syft:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/environment-variables:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/image-labels:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/procfile:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/jattach:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/java-memory-assistant:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/datadog:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/azure-application-insights:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/google-stackdriver:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/maven:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/gradle:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/sbt:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/executable-jar:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/spring-boot:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/apache-tomcat:latest"
+
+[[buildpacks]]
+uri = "docker://paketobuildpacks/dist-zip:latest"
 
 [[order]]
-  group = [
-    { id = "paketo-buildpacks/bellsoft-liberica", version = "99.9.9" },
-    { id = "paketo-buildpacks/ca-certificates" },
-    { id = "paketo-buildpacks/syft" },
-    { id = "paketo-buildpacks/java-memory-assistant" },
-    { id = "paketo-buildpacks/environment-variables" },
-    { id = "paketo-buildpacks/gradle" },        
-    { id = "paketo-buildpacks/maven" },
-    { id = "paketo-buildpacks/executable-jar" },
-    { id = "paketo-buildpacks/spring-boot" }
-  ]
+group = [
+  { id = "paketo-buildpacks/bellsoft-liberica", version = "99.9.9" },
+  { id = "paketo-buildpacks/ca-certificates" },
+  { id = "paketo-buildpacks/syft" },
+  { id = "paketo-buildpacks/environment-variables", optional = true },
+  { id = "paketo-buildpacks/image-labels", optional = true },
+  { id = "paketo-buildpacks/jattach", optional = true },
+  { id = "paketo-buildpacks/java-memory-assistant", optional = true },
+  { id = "paketo-buildpacks/datadog", optional = true },
+  { id = "paketo-buildpacks/azure-application-insights", optional = true },
+  { id = "paketo-buildpacks/google-stackdriver", optional = true },
+  { id = "paketo-buildpacks/gradle", optional = true },
+  { id = "paketo-buildpacks/maven", optional = true },
+  { id = "paketo-buildpacks/sbt", optional = true },
+  { id = "paketo-buildpacks/executable-jar", optional = true },
+  { id = "paketo-buildpacks/spring-boot", optional = true },
+  { id = "paketo-buildpacks/apache-tomcat", optional = true },
+  { id = "paketo-buildpacks/dist-zip", optional = true },
+  { id = "paketo-buildpacks/procfile", optional = true }
+]

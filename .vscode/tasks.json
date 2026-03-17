@@ -1,0 +1,22 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "echo",
+            "type": "shell",
+            "command": "echo Hello"
+        },
+        {
+            "label": "build build image",
+            "type": "shell",
+            "command":"cd build-image &&  docker build -t taha/wolfi-build-image:latest ."
+        },
+        {
+            "label": "build run run-image",
+            "type": "shell",
+            "command":"cd run-image && docker build -t taha/wolfi-run-image:latest ."
+        }
+    ]
+}

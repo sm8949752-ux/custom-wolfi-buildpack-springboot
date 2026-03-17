@@ -1,35 +1,60 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -e
-
 layers_dir="$1"
-java_layer="${layers_dir}/java-fips"
 
-mkdir -p "$java_layer/env.build"
-mkdir -p "$java_layer/env.launch"
+# Read version from where we saved it in detect
+VERSION=$(cat "/tmp/java_version" 2>/dev/null || echo "21")
 
-echo "[types]" > "${java_layer}.toml"
-echo "launch = true" >> "${java_layer}.toml"
-echo "build = true" >> "${java_layer}.toml"
+if [ ! -d "/opt/jdks/$VERSION" ] || [ ! -d "/opt/jres/$VERSION" ]; then
+    echo "ERROR: Java version $VERSION is not supported!"
+    exit 1
+fi
 
-JDK_PATH="/opt/java"
+jdk_layer="${layers_dir}/jdk"
+jre_layer="${layers_dir}/jre"
 
-# 3. تعيين JAVA_HOME
-printf "%s" "$JDK_PATH" > "$java_layer/env.build/JAVA_HOME"
-printf "%s" "$JDK_PATH" > "$java_layer/env.launch/JAVA_HOME"
+mkdir -p "${jdk_layer}/env.build"
+cat > "${jdk_layer}.toml" <<EOF
+[types]
+launch = false
+build = true
+cache = true
+EOF
 
-KEYSTORE_PWD="changeit"
+echo -n "/opt/jdks/${VERSION}" > "${jdk_layer}/env.build/JAVA_HOME"
+echo -n "/opt/jdks/${VERSION}/bin" > "${jdk_layer}/env.build/PATH.prepend"
+echo -n ":" > "${jdk_layer}/env.build/PATH.delim"
 
-FIPS_OPTS="-Dorg.bouncycastle.fips.approved_only=true \
--Dorg.bouncycastle.jsse.client.assumeExtendedKeyUsage=false \
--Dorg.bouncycastle.jsse.trustManager.checkEKU=true \
--Djdk.tls.trustNameService=true \
--Dkeystore.type=BCFKS \
--Djavax.net.ssl.trustStore=$JDK_PATH/lib/security/cacerts \
--Djavax.net.ssl.trustStoreType=BCFKS \
--Djavax.net.ssl.trustStorePassword=$KEYSTORE_PWD \
--Xbootclasspath/a:$JDK_PATH/lib/bc-fips.jar:$JDK_PATH/lib/bcutil-fips.jar:$JDK_PATH/lib/bctls-fips.jar"
+mkdir -p "${jre_layer}/env.launch"
+cat > "${jre_layer}.toml" <<EOF
+[types]
+launch = true
+build = false
+cache = true
+EOF
 
-printf "%s" "$FIPS_OPTS" > "$java_layer/env.build/JAVA_TOOL_OPTIONS"
-printf "%s" "$FIPS_OPTS" > "$java_layer/env.launch/JAVA_TOOL_OPTIONS"
+cp -a /opt/jres/${VERSION}/* "${jre_layer}/"
 
-echo "Success: FIPS parameters applied. Ready for Maven."
+echo -n "${jre_layer}" > "${jre_layer}/env.launch/JAVA_HOME"
+echo -n "${jre_layer}/bin" > "${jre_layer}/env.launch/PATH.prepend"
+echo -n ":" > "${jre_layer}/env.launch/PATH.delim"
+
+# Memory & FIPS Config
+TOTAL_MEMORY=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo "1073741824")
+MAX_HEAP=$(( (TOTAL_MEMORY * 75) / 100 / 1024 / 1024 ))
+FIPS_BASE="-Dorg.bouncycastle.fips.approved_only=true -Dkeystore.type=BCFKS -Djavax.net.ssl.trustStoreType=BCFKS -Djavax.net.ssl.trustStorePassword=changeit"
+
+if [ "$VERSION" == "8" ]; then
+    JDK_TRUST="/opt/jdks/${VERSION}/jre/lib/security/cacerts"
+    JDK_BOOT="/opt/jdks/${VERSION}/jre/lib/ext/bc-fips.jar:/opt/jdks/${VERSION}/jre/lib/ext/bcutil-fips.jar:/opt/jdks/${VERSION}/jre/lib/ext/bctls-fips.jar"
+    JRE_TRUST="${jre_layer}/lib/security/cacerts"
+    JRE_BOOT="${jre_layer}/lib/ext/bc-fips.jar:${jre_layer}/lib/ext/bcutil-fips.jar:${jre_layer}/lib/ext/bctls-fips.jar"
+else
+    JDK_TRUST="/opt/jdks/${VERSION}/lib/security/cacerts"
+    JDK_BOOT="/opt/jdks/${VERSION}/lib/bc-fips.jar:/opt/jdks/${VERSION}/lib/bcutil-fips.jar:/opt/jdks/${VERSION}/lib/bctls-fips.jar"
+    JRE_TRUST="${jre_layer}/lib/security/cacerts"
+    JRE_BOOT="${jre_layer}/lib/bc-fips.jar:${jre_layer}/lib/bcutil-fips.jar:${jre_layer}/lib/bcutil-fips.jar"
+fi
+
+echo -n "${FIPS_BASE} -Djavax.net.ssl.trustStore=${JDK_TRUST} -Xbootclasspath/a:${JDK_BOOT}" > "${jdk_layer}/env.build/JAVA_TOOL_OPTIONS.override"
+echo -n "${FIPS_BASE} -Djavax.net.ssl.trustStore=${JRE_TRUST} -Xbootclasspath/a:${JRE_BOOT} -XX:+ExitOnOutOfMemoryError -Xmx${MAX_HEAP}m" > "${jre_layer}/env.launch/JAVA_TOOL_OPTIONS.override"

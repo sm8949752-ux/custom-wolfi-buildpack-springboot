@@ -1,28 +1,25 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-    
         {
-            "label": "echo",
+            "label": "1. Prepare Builder",
             "type": "shell",
-            "command": "echo Hello"
+            "command": "cd build-image && docker build -t taha/wolfi-build-image:latest . && cd ../2-builder && pack builder create taha/wolfi-fips-builder:latest --config builder.toml"
         },
         {
-            "label": "build build image",
+            "label": "2. Prepare Run Image",
             "type": "shell",
-            "command":"cd build-image &&  docker build -t taha/wolfi-build-image:latest ."
+            "command": "cd run-image && docker build -t taha/wolfi-run-image:latest ."
         },
         {
-            "label": "build run run-image",
+            "label": "3. Build App",
             "type": "shell",
-            "command":"cd run-image && docker build -t taha/wolfi-run-image:latest ."
+            "command": "pack build taha/spring-boot-fips-app --path 3-sample-app --builder taha/wolfi-fips-builder:latest --env BP_JVM_TYPE=JRE --publish=false"
         },
         {
-            "label": "build pack",
+            "label": "4. Run App",
             "type": "shell",
-            "command":"cd 2-builder && pack builder create taha/wolfi-fips-builder:latest --config builder.toml"
+            "command": "docker rm -f fips-app-container || true && docker run -d -p 8080:8080 --name fips-app-container taha/spring-boot-fips-app"
         }
     ]
 }

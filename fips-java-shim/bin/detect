@@ -1,13 +1,31 @@
 #!/usr/bin/env bash
 set -e
 
-plan=$2
+PLAN="$2"
+VERSION="${BP_JVM_VERSION:-21}"
 
-cat >> "$plan" <<EOF
+if [ -f "pom.xml" ]; then
+    DETECTED=$(grep -E "<java.version>[0-9]+" pom.xml | head -n1 | sed -E 's/.*<java.version>([0-9]+).*/\1/')
+    [ -n "$DETECTED" ] && VERSION="$DETECTED"
+fi
+
+if [ ! -d "/opt/jdks/$VERSION" ]; then
+    exit 100
+fi
+
+cat > "${PLAN}" <<EOF
 [[provides]]
 name = "jdk"
+
 [[provides]]
+name = "jre"
+
+[[requires]]
+name = "jdk"
+
+[[requires]]
 name = "jre"
 EOF
 
+echo "$VERSION" > "/tmp/java_version"
 exit 0

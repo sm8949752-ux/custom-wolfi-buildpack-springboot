@@ -1,24 +1,31 @@
 {
-    "name": "FIPS Buildpack Dev",
+    "name": "CNB java",
     "build": {
         "dockerfile": "Dockerfile"
     },
     "features": {
-        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-            "version": "latest"
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {
+            "version": "latest",
+            "enableNonRootDocker": true,
+            "moby": true
+        },
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "username": "vscode"
         }
-    },
-    "containerEnv": {
-        "DOCKER_API_VERSION": "1.43"
     },
     "customizations": {
         "vscode": {
             "extensions": [
+                "ms-kubernetes-tools.vscode-kubernetes-tools",
+                "redhat.vscode-yaml",
                 "ms-azuretools.vscode-docker",
-                "ms-python.python",
-                "tamasfe.even-better-toml"
-            ]
+                "pkief.material-icon-theme"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
         }
     },
-    "remoteUser": "root"
+    "remoteUser": "vscode",
+    "postCreateCommand": "echo 'The Environment is ready!'"
 }

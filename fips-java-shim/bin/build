@@ -1,69 +1,186 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/env python3
+import os
+import sys
+import re
+import hashlib
+import shutil
+from pathlib import Path
 
-layers_dir="$1"
-plan_path="$3"
+# =====================================================================
+# 0. UI & LOGGING SETUP
+# =====================================================================
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.columns import Columns
+except ImportError:
+    class Console:
+        def print(self, *args, **kwargs): print(*args)
+    class Panel:
+        @staticmethod
+        def fit(text, title=""): return f"--- {title} ---\n{text}"
 
-VERSION=""
+console = Console()
 
-if [ -n "$BP_JVM_VERSION" ]; then
-    VERSION="$BP_JVM_VERSION"
-elif [ -f "$plan_path" ]; then
-    VERSION=$(grep -E 'version\s*=\s*"[0-9.]+"' "$plan_path" | head -n1 | grep -oE "[0-9.]+" | head -n1 || echo "")
-fi
+# =====================================================================
+# DEBUG HELPERS
+# =====================================================================
 
-if [ -z "$VERSION" ]; then
-    if [ -f "pom.xml" ]; then
-        VERSION=$(grep -E "<(java\.version|maven\.compiler\.source)>[0-9.]+" pom.xml | head -n1 | grep -oE "[0-9.]+" | head -n1 || echo "")
-    elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-        VERSION=$(grep -E "JavaLanguageVersion\.of\(|sourceCompatibility|targetCompatibility" build.gradle build.gradle.kts 2>/dev/null | head -n1 | grep -oE "[0-9.]+" | head -n1 || echo "")
-    fi
-fi
+def get_dir_fingerprint(directory: Path):
+    """Generates a fast fingerprint based on file metadata."""
+    if not directory.exists(): return "N/A"
+    fingerprint = hashlib.sha256()
+    for path in sorted(directory.rglob('*')):
+        if path.is_file():
+            stat = path.stat()
+            info = f"{path.relative_to(directory)}|{stat.st_size}|{stat.st_mtime}"
+            fingerprint.update(info.encode())
+    return fingerprint.hexdigest()[:16] # Shortened for display
 
-VERSION="${VERSION:-21}"
-[[ "$VERSION" == "1.8"* ]] && VERSION="8"
-VERSION=$(echo "$VERSION" | cut -d. -f1)
+def read_layer_metadata(toml_path: Path):
+    metadata = {}
+    if toml_path.exists():
+        content = toml_path.read_text()
+        for line in content.splitlines():
+            match = re.match(r'^\s*([a-zA-Z0-9_]+)\s*=\s*"([^"]+)"', line)
+            if match: metadata[match.group(1)] = match.group(2)
+    return metadata
 
-echo "---> FIPS Java Shim: Using Java $VERSION"
+def write_layer_toml(toml_path: Path, types: dict, metadata: dict):
+    content = "[types]\n"
+    for k, v in types.items():
+        content += f"{k} = {'true' if v else 'false'}\n"
+    content += "\n[metadata]\n"
+    for k, v in metadata.items():
+        content += f'{k} = "{v}"\n'
+    toml_path.write_text(content)
 
-if [ ! -d "/opt/jdks/$VERSION" ]; then
-    VERSION="21"
-    echo "---> Fallback: Using Java $VERSION"
-fi
+# =====================================================================
+# MAIN BUILD PROCESS
+# =====================================================================
+def main():
+    layers_dir = Path(sys.argv[1])
+    platform_dir = Path(sys.argv[2])
+    plan_path = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("")
 
-jdk_layer="${layers_dir}/jdk"
-jre_layer="${layers_dir}/jre"
+    console.print(Panel.fit("[bold cyan]FIPS Java Shim v4.6[/bold cyan]\n[white]Deep Debugging & Cache Analysis[/white]", title="DEBUG MODE"))
 
-mkdir -p "${jdk_layer}/env.build"
-echo -e "[types]\nlaunch = false\nbuild = true\ncache = true" > "${jdk_layer}.toml"
-echo -n "/opt/jdks/${VERSION}" > "${jdk_layer}/env.build/JAVA_HOME"
-echo -n "/opt/jdks/${VERSION}/bin" > "${jdk_layer}/env.build/PATH.prepend"
-echo -n ":" > "${jdk_layer}/env.build/PATH.delim"
+    # 1. ARGS DEBUGGING
+    args_table = Table(title="Buildpack Arguments")
+    args_table.add_column("Arg", style="dim")
+    args_table.add_column("Path")
+    args_table.add_row("$1 (Layers)", str(layers_dir))
+    args_table.add_row("$2 (Platform)", str(platform_dir))
+    args_table.add_row("$3 (Plan)", str(plan_path))
+    console.print(args_table)
 
-mkdir -p "${jre_layer}/env.launch"
-echo -e "[types]\nlaunch = true\nbuild = false\ncache = true" > "${jre_layer}.toml"
-cp -a /opt/jres/${VERSION}/* "${jre_layer}/"
-echo -n "${jre_layer}" > "${jre_layer}/env.launch/JAVA_HOME"
-echo -n "${jre_layer}/bin" > "${jre_layer}/env.launch/PATH.prepend"
-echo -n ":" > "${jre_layer}/env.launch/PATH.delim"
+    # 2. VERSION RESOLUTION
+    version = "21"
+    if plan_path.exists():
+        match = re.search(r'version\s*=\s*"([0-9.]+)"', plan_path.read_text())
+        if match: version = match.group(1)
+    
+    jvm_type = os.getenv("BP_JVM_TYPE", "JRE").upper()
+    fips_base = "-Dorg.bouncycastle.fips.approved_only=true -Dkeystore.type=BCFKS -Djavax.net.ssl.trustStoreType=BCFKS -Djavax.net.ssl.trustStorePassword=changeit"
 
-TOTAL_MEMORY=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || echo "1073741824")
-MAX_HEAP=$(( (TOTAL_MEMORY * 75) / 100 / 1024 / 1024 ))
-FIPS_BASE="-Dorg.bouncycastle.fips.approved_only=true -Dkeystore.type=BCFKS -Djavax.net.ssl.trustStoreType=BCFKS -Djavax.net.ssl.trustStorePassword=changeit"
+    # =================================================================
+    # 1. JDK LAYER (BUILD-TIME)
+    # =================================================================
+    jdk_layer = layers_dir / "jdk"
+    jdk_src = Path(f"/opt/jdks/{version}")
+    jdk_fp = get_dir_fingerprint(jdk_src)
+    
+    jdk_meta = read_layer_metadata(Path(f"{jdk_layer}.toml"))
+    old_jdk_fp = jdk_meta.get("fingerprint", "NEW")
+    
+    jdk_decision = "[bold green]REUSE[/bold green]" if old_jdk_fp == jdk_fp and jdk_layer.exists() else "[bold yellow]UPDATE[/bold yellow]"
+    
+    cache_table = Table(title="Layer Cache Analysis")
+    cache_table.add_column("Layer")
+    cache_table.add_column("Stored Hash")
+    cache_table.add_column("Current Hash")
+    cache_table.add_column("Action")
+    cache_table.add_row("JDK", old_jdk_fp, jdk_fp, jdk_decision)
 
-if [ "$VERSION" == "8" ]; then
-    JDK_TRUST="/opt/jdks/${VERSION}/jre/lib/security/cacerts"
-    JDK_BOOT="/opt/jdks/${VERSION}/jre/lib/ext/bc-fips.jar:/opt/jdks/${VERSION}/jre/lib/ext/bcutil-fips.jar:/opt/jdks/${VERSION}/jre/lib/ext/bctls-fips.jar"
-    JRE_TRUST="${jre_layer}/lib/security/cacerts"
-    JRE_BOOT="${jre_layer}/lib/ext/bc-fips.jar:${jre_layer}/lib/ext/bcutil-fips.jar:${jre_layer}/lib/ext/bctls-fips.jar"
-else
-    JDK_TRUST="/opt/jdks/${VERSION}/lib/security/cacerts"
-    JDK_BOOT="/opt/jdks/${VERSION}/lib/bc-fips.jar:/opt/jdks/${VERSION}/lib/bcutil-fips.jar:/opt/jdks/${VERSION}/lib/bctls-fips.jar"
-    JRE_TRUST="${jre_layer}/lib/security/cacerts"
-    JRE_BOOT="${jre_layer}/lib/bc-fips.jar:${jre_layer}/lib/bcutil-fips.jar:${jre_layer}/lib/bctls-fips.jar"
-fi
+    if "UPDATE" in jdk_decision:
+        if jdk_layer.exists(): shutil.rmtree(jdk_layer)
+        os.makedirs(jdk_layer, exist_ok=True)
+    
+    # Always refresh Metadata and Environment
+    write_layer_toml(Path(f"{jdk_layer}.toml"), {"launch": False, "build": True, "cache": True}, {"java_version": version, "fingerprint": jdk_fp})
+    env_build_dir = jdk_layer / "env.build"
+    os.makedirs(env_build_dir, exist_ok=True)
+    (env_build_dir / "JAVA_HOME").write_text(str(jdk_src))
+    (env_build_dir / "PATH.prepend").write_text(f"{jdk_src}/bin")
+    (env_build_dir / "PATH.delim").write_text(":")
+    
+    # FIPS JDK Options
+    trust_dir = "jre/lib" if version == "8" else "lib"
+    jdk_trust = f"{jdk_src}/{trust_dir}/security/cacerts"
+    jdk_boot  = f"{jdk_src}/{trust_dir}/ext/bc-fips.jar:{jdk_src}/{trust_dir}/ext/bcutil-fips.jar:{jdk_src}/{trust_dir}/ext/bctls-fips.jar" if version == "8" else f"{jdk_src}/lib/bc-fips.jar:{jdk_src}/lib/bcutil-fips.jar:{jdk_src}/lib/bctls-fips.jar"
+    (env_build_dir / "JAVA_TOOL_OPTIONS.override").write_text(f"{fips_base} -Djavax.net.ssl.trustStore={jdk_trust} -Xbootclasspath/a:{jdk_boot}")
 
-echo -n "${FIPS_BASE} -Djavax.net.ssl.trustStore=${JDK_TRUST} -Xbootclasspath/a:${JDK_BOOT}" > "${jdk_layer}/env.build/JAVA_TOOL_OPTIONS.override"
-echo -n "${FIPS_BASE} -Djavax.net.ssl.trustStore=${JRE_TRUST} -Xbootclasspath/a:${JRE_BOOT} -XX:+ExitOnOutOfMemoryError -Xmx${MAX_HEAP}m" > "${jre_layer}/env.launch/JAVA_TOOL_OPTIONS.override"
+    # =================================================================
+    # 2. JRE LAYER (LAUNCH-TIME)
+    # =================================================================
+    jre_layer = layers_dir / "jre"
+    source_to_copy = jdk_src if jvm_type == "JDK" else Path(f"/opt/jres/{version}")
+    jre_fp = get_dir_fingerprint(source_to_copy)
+    
+    jre_meta = read_layer_metadata(Path(f"{jre_layer}.toml"))
+    old_jre_fp = jre_meta.get("fingerprint", "NEW")
+    
+    # Memory Calc
+    try:
+        with open("/sys/fs/cgroup/memory/memory.limit_in_bytes", "r") as f:
+            total_mem = int(f.read().strip())
+    except:
+        total_mem = 1073741824 
+    
+    headroom = int(os.getenv("BPL_JVM_HEAD_ROOM", "25"))
+    max_heap = int((total_mem * (100 - headroom)) / 100 / 1024 / 1024)
 
-exit 0
+    jre_decision = "[bold green]REUSE[/bold green]" if old_jre_fp == jre_fp and jre_layer.exists() else "[bold yellow]SYNC[/bold yellow]"
+    cache_table.add_row("JRE", old_jre_fp, jre_fp, jre_decision)
+    console.print(cache_table)
+
+    if "SYNC" in jre_decision:
+        if jre_layer.exists(): shutil.rmtree(jre_layer)
+        shutil.copytree(source_to_copy, jre_layer)
+
+    # Always refresh Metadata and Environment
+    write_layer_toml(Path(f"{jre_layer}.toml"), {"launch": True, "build": False, "cache": True}, {"java_version": version, "jvm_type": jvm_type, "fingerprint": jre_fp, "max_heap": str(max_heap)})
+    
+    env_launch_dir = jre_layer / "env.launch"
+    profile_dir = jre_layer / "profile.d"
+    os.makedirs(env_launch_dir, exist_ok=True)
+    os.makedirs(profile_dir, exist_ok=True)
+    
+    (profile_dir / "symlink_java.sh").write_text(f'#!/bin/sh\nmkdir -p /opt && ln -sf {jre_layer} /opt/java\n')
+    (env_launch_dir / "JAVA_HOME").write_text("/opt/java")
+    (env_launch_dir / "PATH.prepend").write_text(f"/opt/java/bin:{jre_layer}/bin")
+    (env_launch_dir / "PATH.delim").write_text(":")
+
+    # JRE FIPS Options
+    trust_dir = "lib" if version == "8" and jvm_type == "JRE" else ("jre/lib" if version == "8" else "lib")
+    jre_trust = f"{jre_layer}/{trust_dir}/security/cacerts"
+    jre_boot  = f"{jre_layer}/{trust_dir}/ext/bc-fips.jar:{jre_layer}/{trust_dir}/ext/bcutil-fips.jar:{jre_layer}/{trust_dir}/ext/bctls-fips.jar" if version == "8" else f"{jre_layer}/lib/bc-fips.jar:{jre_layer}/lib/bcutil-fips.jar:{jre_layer}/lib/bctls-fips.jar"
+    (env_launch_dir / "JAVA_TOOL_OPTIONS.override").write_text(f"{fips_base} -Djavax.net.ssl.trustStore={jre_trust} -Xbootclasspath/a:{jre_boot} -XX:+ExitOnOutOfMemoryError -Xmx{max_heap}m")
+
+    # =================================================================
+    # 3. FINAL VALIDATION
+    # =================================================================
+    final_table = Table(title="Final State Debug")
+    final_table.add_column("Item", style="cyan")
+    final_table.add_column("Status")
+    final_table.add_row("JRE at /opt/java", "READY (via profile.d)")
+    final_table.add_row("Calculated Xmx", f"{max_heap}MB")
+    final_table.add_row("Env Build Dir", "REWRITTEN")
+    console.print(final_table)
+
+    console.print("[bold green]✔ Build Process Complete.[/bold green]")
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

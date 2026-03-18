@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-plan=$2
+PLAN="$2"
 
-cat >> "$plan" <<EOF
+cat > "${PLAN}" <<EOF
 [[provides]]
 name = "jdk"
+
 [[provides]]
 name = "jre"
 EOF

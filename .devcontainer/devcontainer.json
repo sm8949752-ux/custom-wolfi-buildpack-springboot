@@ -1,5 +1,5 @@
 {
-    "name": "FIPS Buildpack Custom Dev",
+    "name": "FIPS Buildpack Dev",
     "build": {
         "dockerfile": "Dockerfile"
     },
@@ -20,6 +20,5 @@
             ]
         }
     },
-    "remoteUser": "root",
-    "postCreateCommand": "sudo chown root:root /var/run/docker.sock || true"
+    "remoteUser": "root"
 }

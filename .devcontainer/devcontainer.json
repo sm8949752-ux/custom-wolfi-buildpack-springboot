@@ -6,14 +6,13 @@
     "containerEnv": {
         "DOCKER_API_VERSION": "1.41"
     },
-
     "features": {
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
             "version": "latest",
-            "enableNonRootDocker": true,
-            "moby": true
+            "enableNonRootChildContainerUsage": true
         },
         "ghcr.io/devcontainers/features/common-utils:2": {
+            "configureZshAsDefaultShell": false,
             "username": "vscode"
         }
     },
@@ -23,7 +22,9 @@
                 "ms-kubernetes-tools.vscode-kubernetes-tools",
                 "redhat.vscode-yaml",
                 "ms-azuretools.vscode-docker",
-                "pkief.material-icon-theme"
+                "pkief.material-icon-theme",
+                "ms-python.python",
+                "tamasfe.even-better-toml"
             ],
             "settings": {
                 "terminal.integrated.defaultProfile.linux": "bash"
@@ -31,5 +32,5 @@
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "echo 'The Environment is ready!'"
+    "postCreateCommand": "pip3 install rich && sudo chown vscode:vscode /var/run/docker.sock || true"
 }

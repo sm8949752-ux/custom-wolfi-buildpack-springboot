@@ -32,5 +32,5 @@
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "pip3 install rich && sudo chown vscode:vscode /var/run/docker.sock || true"
+    "postCreateCommand": "sudo chmod 666 /var/run/docker.sock && pip3 install rich && sudo chown vscode:vscode /var/run/docker.sock || true"
 }

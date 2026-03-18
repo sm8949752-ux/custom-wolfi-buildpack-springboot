@@ -1,23 +1,25 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "1. Prepare Builder",
-            "type": "shell",
-            "command": "export DOCKER_API_VERSION=1.43 && cd build-image && docker build -t taha/wolfi-build-image:latest . && cd ../2-builder && pack builder create taha/wolfi-fips-builder:latest --config builder.toml",
-            "problemMatcher": []
-        },
-        {
-            "label": "2. Prepare Run Image",
-            "type": "shell",
-            "command": "export DOCKER_API_VERSION=1.43 && cd run-image && docker build -t taha/wolfi-run-image:latest .",
-            "problemMatcher": []
-        },
-        {
-            "label": "3. Build App Maven",
-            "type": "shell",
-            "command": "export DOCKER_API_VERSION=1.43 && pack build taha/maven-fips-app --path 3-sample-app --builder taha/wolfi-fips-builder:latest --env BP_JVM_TYPE=JRE --publish=false",
-            "problemMatcher": []
+    "name": "FIPS Buildpack Custom Dev",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+            "version": "latest"
         }
-    ]
+    },
+    "containerEnv": {
+        "DOCKER_API_VERSION": "1.43"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "tamasfe.even-better-toml"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "postCreateCommand": "sudo chown root:root /var/run/docker.sock || true"
 }

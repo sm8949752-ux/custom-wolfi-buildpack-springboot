@@ -42,7 +42,7 @@ ENV CNB_GROUP_ID=1001
 RUN groupadd -g ${CNB_GROUP_ID} cnb && \
     useradd -u ${CNB_USER_ID} -g ${CNB_GROUP_ID} -s /bin/bash -m cnb
 
-LABEL io.buildpacks.stack.id="io.buildpacks.stacks.jammy"
+LABEL io.buildpacks.stack.id="taha/wolfi-build-image"
 
 RUN chown -R ${CNB_USER_ID}:${CNB_GROUP_ID} /opt/jdks /opt/jres && \
     chmod -R 755 /opt/jdks /opt/jres

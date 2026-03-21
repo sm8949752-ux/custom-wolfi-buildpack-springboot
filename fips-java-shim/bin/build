@@ -205,6 +205,21 @@ args = ["-version"]
 working-dir = "/workspace"
 direct = true
 ''')
-
+    # Logic to handle Vendor SBOM
+    vendor_sbom = jre_src / "java.cdx.json"
+    
+    if vendor_sbom.exists():
+        # Define destination path based on CNB Spec
+        # Path: <layer_dir>/sbom/<phase>/<layer_name>/
+        sbom_dir = jre_layer / "sbom" / "launch" / "jre"
+        sbom_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copy the file
+        shutil.copy2(vendor_sbom, sbom_dir / "java.cdx.json")
+        
+        # Log discovery
+        log_step("JRE", "SBOM", f"Detected and linked: {vendor_sbom.name}")
+    else:
+        log_step("JRE", "SBOM", "No vendor SBOM found")
 if __name__ == "__main__":
     main()

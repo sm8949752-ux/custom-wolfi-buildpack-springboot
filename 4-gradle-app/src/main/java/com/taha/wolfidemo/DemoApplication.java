@@ -44,7 +44,7 @@ public class DemoApplication {
             // FipsUnapprovedOperationError or specific FIPS messages indicate success
             if (errorType.contains("FipsUnapprovedOperationError") || 
                 (message != null && message.toLowerCase().contains("approved only mode"))) {
-                return "SUCCESS: FIPS is strictly enforced. System blocked insecure RSA-1024 key generation. Error Type: " + errorType;
+                return " just change SUCCESS: FIPS is strictly enforced. System blocked insecure RSA-1024 key generation. Error Type: " + errorType;
             }
             
             return "TERMINATED: An unexpected error occurred: " + errorType + " - " + message;

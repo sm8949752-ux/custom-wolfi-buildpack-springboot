@@ -1,0 +1,31 @@
+version: '3'
+
+vars:
+  BP_NAME: taha/fips-java
+  BP_VERSION: 1.0.0
+  BP_PATH: ./fips-java-shim
+
+tasks:
+  package:
+    desc: Package the FIPS Java Buildpack as an OCI image
+    cmds:
+      - pack buildpack package {{.BP_NAME}}:{{.BP_VERSION}} --path {{.BP_PATH}} --format image
+
+  inspect:
+    desc: Inspect the packaged buildpack metadata
+    cmds:
+      - pack buildpack inspect {{.BP_NAME}}:{{.BP_VERSION}}
+
+  clean:
+    desc: Remove the local buildpack image
+    cmds:
+      - docker rmi {{.BP_NAME}}:{{.BP_VERSION}} || true
+
+
+  inspect-any:
+      desc: Show layers for a specific image (usage task app:inspect-any IMG=name)
+      vars:
+        IMAGE: '{{default "taha/maven-fips-app:latest" .IMG}}'
+      cmds:
+        - |
+          paste <(docker inspect {{.IMAGE}} --format='{{range .RootFS.Layers}}{{.}}{{println}}{{end}}') <(docker history {{.IMAGE}} --format "{{.Size}}" | grep -v SIZE | tac) | column -t > 1.txt

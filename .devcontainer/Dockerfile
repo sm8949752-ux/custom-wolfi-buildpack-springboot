@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
     git \
     sudo \
     && rm -rf /var/lib/apt/lists/*
-
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/task/task/setup.deb.sh' | sudo -E bash
+RUN apt install task -y
 RUN useradd -m -s /bin/bash vscode && \
     echo "vscode ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 

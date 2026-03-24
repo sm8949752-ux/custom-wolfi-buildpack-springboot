@@ -1,8 +1,13 @@
 version: '3'
-
+env:
+  DOCKER_API_VERSION: "1.43"
 includes:
-  bp: taskfile/buildpack.Taskfile.yml
-  app: taskfile/app.Taskfile.yml
+  img: taskfile/image.yml
+  builder: taskfile/builder.yml
+  app: taskfile/app.yml
+  util: taskfile/util.yml
+  bp: taskfile/buildpack.yml
+
 
 vars:
   BUILD_IMAGE: taha/wolfi-build-image:latest
@@ -18,38 +23,7 @@ tasks:
   all:
     desc: Build everything from scratch
     cmds:
-      - task: build-img
-      - task: run-img
+      - task: img:build-img
+      - task: img:run-img
       - task: bp:package
-      - task: builder
-
-  build-img:
-    desc: Build the Wolfi Build Image
-    dir: build-image
-    cmds:
-      - docker build -t {{.BUILD_IMAGE}} .
-
-  run-img:
-    desc: Build the Wolfi Run Image (Distroless)
-    dir: run-image
-    cmds:
-      - docker build -t {{.RUN_IMAGE}} .
-  run-img-with-shell:
-    desc: Build the Wolfi Run Image (with shell for debugging)
-    dir: run-image
-    cmds:
-      - docker build -t {{.RUN_IMAGE}}-shell -f Dockerfile.run .
-  builder:
-    desc: Create the final Cloud Native Builder
-    cmds:
-      - pack builder create {{.BUILDER_NAME}} --config {{.BUILDER_CONFIG}}
-
-  inspect:
-    desc: Inspect the final builder
-    cmds:
-      - pack builder inspect {{.BUILDER_NAME}}
-
-  app-maven:
-    desc: Build the sample Maven app using our custom builder
-    cmds:
-      - pack build taha/maven-fips-app --path 3-sample-app --builder {{.BUILDER_NAME}} --env BP_JVM_TYPE=JRE
+      - task: builder:create

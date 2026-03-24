@@ -33,3 +33,11 @@ tasks:
     cmds:
       - task: build-maven
       - task: build-gradle
+  sbom-maven:
+    desc: Download SBOM for the Maven application
+    cmds:
+      - pack sbom download {{.MAVEN_APP_IMG}} --output-dir ./sbom-maven
+  sbom-gradle:
+    desc: Download SBOM for the Gradle application
+    cmds:
+      - pack sbom download {{.GRADLE_APP_IMG}} --output-dir ./sbom-gradle

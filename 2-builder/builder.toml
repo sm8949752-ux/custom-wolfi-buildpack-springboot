@@ -1,5 +1,4 @@
 description = "Custom Wolfi FIPS Builder"
-
 [stack]
   id = "taha/wolfi-build-image" 
   build-image = "taha/wolfi-build-image:latest"

@@ -6,12 +6,14 @@ vars:
   MAVEN_PATH: 3-sample-app
   GRADLE_APP_IMG: taha/gradle-fips-app:latest
   GRADLE_PATH: 4-gradle-app
+  #  only for github codespace  Docker API 1.43
+  LIFECYCLE_IMG: buildpacksio/lifecycle:0.17.2
 
 tasks:
   build-maven:
     desc: Build the Maven application
     cmds:
-      - pack build {{.MAVEN_APP_IMG}} --path {{.MAVEN_PATH}} --builder {{.BUILDER}} --env BP_JVM_TYPE=JRE
+      - pack build {{.MAVEN_APP_IMG}} --path {{.MAVEN_PATH}} --builder {{.BUILDER}} --env BP_JVM_TYPE=JRE --lifecycle-image {{.LIFECYCLE_IMG}}
 
   run-maven:
     desc: Run the Maven application
@@ -21,7 +23,7 @@ tasks:
   build-gradle:
     desc: Build the Gradle application
     cmds:
-      - pack build {{.GRADLE_APP_IMG}} --path {{.GRADLE_PATH}} --builder {{.BUILDER}} --env BP_JVM_TYPE=JRE
+      - pack build {{.GRADLE_APP_IMG}} --path {{.GRADLE_PATH}} --builder {{.BUILDER}} --env BP_JVM_TYPE=JRE --lifecycle-image {{.LIFECYCLE_IMG}}
 
   run-gradle:
     desc: Run the Gradle application
@@ -33,11 +35,3 @@ tasks:
     cmds:
       - task: build-maven
       - task: build-gradle
-  sbom-maven:
-    desc: Download SBOM for the Maven application
-    cmds:
-      - pack sbom download {{.MAVEN_APP_IMG}} --output-dir ./sbom-maven
-  sbom-gradle:
-    desc: Download SBOM for the Gradle application
-    cmds:
-      - pack sbom download {{.GRADLE_APP_IMG}} --output-dir ./sbom-gradle

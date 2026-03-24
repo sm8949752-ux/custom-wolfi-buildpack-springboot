@@ -1,6 +1,7 @@
 version: '3'
 env:
-  DOCKER_API_VERSION: "1.43"
+  DOCKER_API_VERSION: "1.50"
+  PACK_VOLUME_KEY: "taha-fips-cache-key"
 includes:
   img: taskfile/image.yml
   builder: taskfile/builder.yml

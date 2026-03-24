@@ -1,4 +1,4 @@
-api = "0.8"
+api = "0.12"
 
 
 [[stacks]]
@@ -35,6 +35,14 @@ id = "taha/fips-java"
 version = "1.0.0"
 name = "FIPS Java Shim"
 
+
+[[targets]]
+os = "linux"
+arch = "amd64"
+
+[[targets]]
+os = "linux"
+arch = "arm64"
 
 
 [[provides]]
